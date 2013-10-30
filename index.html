@@ -1,12 +1,11 @@
 <!doctype html>
 <html>
 	<head>
-		<!--<script type="text/javascript" src="pdfjs/pdf.js"></script>
-		<script type="text/javascript">PDFJS.workerSrc = 'pdfjs/pdf.js';</script>-->
+		<script type="text/javascript" src="pdf.js"></script>
 		<link rel="stylesheet" type="text/css" href="stranitsa.css">
 		<script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 		<script type="text/javascript" src="stranitsa.js"></script>
-		
+		<script type="text/javascript" src="pdf.stranitsa.js"></script>
 	</head>
 	<body>
 		<div id="pages">
@@ -26,11 +25,15 @@
 				Page 5
 			</div>
 		</div>
+		<div id="pdf">
+		
+		</div>
 		<script type="text/javascript">
 			$(document).ready(function() {
 				$("#pages").stranitsa({
 					width:400, height:300
 				});
+				$("#pdf").stranitsa.pdf('http://www.worldwidewhat.net/extras/render-pdf-files-with-html5/example/compressed.tracemonkey-pldi-09.pdf');
 			});
 		</script>
 	</body>

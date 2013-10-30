@@ -18,7 +18,7 @@
 		width:400,
 		height:300,
 		hasCover:true,
-		page:1,
+		page:0,
 		classes:{
 			actions: {
 				next:'stranitsa-action-next',
@@ -56,24 +56,30 @@
 		$nextAction.click(function() {nextPage.call($self, options)});
 	};
 	var makePage = function(options, index) {
-		return $('<div class="stranitsa-page ' + (index % 2 == 0 ? options.classes.pages.left : options.classes.pages.right) + '"/>').html(options.pages[index]).css('background-color', 'white');
+		return $('<div class="stranitsa-page ' + (index % 2 == 0 ? options.classes.pages.left : options.classes.pages.right) + '"/>').html(options.pages[index]).css({backgroundColor:'white', boxShadow:'inset ' + (index % 2 == 0 ? '-' : '') + '25px 0 25px -25px #555'});
 	};
 	var prevPage = function(options) {
+		options.page -= 2;
+		$prevLeftPage = makePage(options, options.page).css({position:'absolute',top:0,left:0,width:0});
+		$prevRightPage = makePage(options, options.page + 1).css({position:'absolute',top:0,left:0,width:0});
+		$(this).append($prevLeftPage).append($prevRightPage);
+		animate(options, $prevLeftPage, $prevRightPage);
 	};
 	var nextPage = function(options) {
-		console.log("asdf");
 		options.page += 2;
 		$nextLeftPage = makePage(options, options.page).css({position:'absolute',top:0,left:options.width,width:0});
 		$nextRightPage = makePage(options, options.page + 1).css({position:'absolute',top:0,left:options.width,width:0});
 		$(this).append($nextLeftPage).append($nextRightPage);
-		$nextLeftPage.animate({
+		animate(options, $nextLeftPage, $nextRightPage);
+	};
+	var animate = function(options, $left, $right) {
+		$left.animate({
 			left:0,
 			width:options.width / 2
 		});
-		$nextRightPage.animate({
+		$right.animate({
 			left:options.width / 2,
 			width:options.width / 2
 		});
-		
 	};
 }(jQuery));
