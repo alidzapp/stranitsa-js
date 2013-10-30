@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+	<head>
+		<!--<script type="text/javascript" src="pdfjs/pdf.js"></script>
+		<script type="text/javascript">PDFJS.workerSrc = 'pdfjs/pdf.js';</script>-->
+		<link rel="stylesheet" type="text/css" href="stranitsa.css">
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+		<script type="text/javascript" src="stranitsa.js"></script>
+		
+	</head>
+	<body>
+		<div id="pages">
+			<div class="page">
+				Page 1
+			</div>
+			<div class="page">
+				Page 2
+			</div>
+			<div class="page">
+				Page 3
+			</div>
+			<div class="page">
+				Page 4
+			</div>
+			<div class="page">
+				Page 5
+			</div>
+		</div>
+		<script type="text/javascript">
+			$(document).ready(function() {
+				$("#pages").stranitsa({
+					width:400, height:300
+				});
+			});
+		</script>
+	</body>
+</html>
