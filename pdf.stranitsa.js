@@ -72,20 +72,7 @@
 				top: canvasOffset.top,
 				left: canvasOffset.left
 			});
-		
-		/*var cssScale = 'scale(' + (1 / width) + ', ' +
-			(1 / height) + ')';
-			CustomStyle.setProp('transform', canvas, cssScale);
-			CustomStyle.setProp('transformOrigin', canvas, '0% 0%');
-		if ($textLayerDiv.get(0)) {
-			CustomStyle.setProp('transform', $textLayerDiv.get(0), cssScale);
-			CustomStyle.setProp('transformOrigin', $textLayerDiv.get(0), '0% 0%');
-		}
-		context._scaleX = width;
-		context._scaleY = height;
-		context.scale(width, height);*/
 		$target.append($textLayerDiv);
-		
 		page.getTextContent().then(function (textContent) {
 			var textLayer = new TextLayerBuilder({
 				textLayerDiv: $textLayerDiv.get(0),
@@ -103,6 +90,5 @@
 			});
 		});
 		$target.css("width", canvas.width);
-		
 	}
 }(jQuery));
