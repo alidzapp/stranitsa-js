@@ -90,5 +90,7 @@
 			});
 		});
 		$target.css("width", canvas.width);
+		$target.data('stranitsa-width', viewport.width);
+		$target.data('stranitsa-height', viewport.height);
 	}
 }(jQuery));

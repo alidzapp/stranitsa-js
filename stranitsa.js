@@ -41,7 +41,7 @@
 		},
 		render:function(index, options) {
 			var defer = $.Deferred();
-			defer.resolve($(options.pages[index]).clone());
+			defer.resolve($(options.pages[index]).clone(true, true));
 			return defer;
 		}
 	};
@@ -71,6 +71,17 @@
 		$self.append($leftPage).append($rightPage);
 		$leftPage.css({position:'absolute',top:0,left:0});
 		$rightPage.css({position:'absolute',top:0,left:options.width / 2});
+		function makePage(options, index) {
+			var $page = $('<div class="stranitsa-page ' + (index % 2 == 0 ? options.classes.pages.left : options.classes.pages.right) + '"/>').css({backgroundColor:'white'});
+			options.render(index, options).done(function(content) {
+				var ratio = options.width / (2 * content.data('stranitsa-width'));
+				$page.width(options.width / 2);
+				$page.height(content.data('stranitsa-height') * ratio);
+				$self.height(Math.max($self.height(), $page.height()));
+				$page.html(content);
+			});
+			return $page;
+		};
 		function relativeEventCoordinates(e, parent) {
 			var unnormalized = {x:e.pageX - parent.offset().left, y:e.pageY - parent.offset().top};
 			var origin = {x:(options.width / 2) * $self.scale(), y:0};
@@ -136,7 +147,6 @@
 				animation.finish();
 			}
 			if(clickTimer != null) {
-				// double click!
 				clearTimeout(clickTimer);
 				clickTimer = null;
 				if(!zooming) {
@@ -223,7 +233,7 @@
 					},
 					complete:function() {
 						if(this.x != $self.data('stranitsa-dragging').x) {
-							$self.children(".stranitsa-page").remove();
+							$self.children(".stranitsa-page").detach();
 							$self.append($self.find("#stranitsa-right-frame").children().rotate(0).css({position:'absolute',top:0,left:options.width / 2}));
 							$self.append($self.find("#stranitsa-left-frame").children().rotate(0).css({position:'absolute',top:0,left:0}));
 						} else {
@@ -233,7 +243,7 @@
 								options.page += 2;
 							}
 						}
-						$self.find("#stranitsa-right-frame, #stranitsa-left-frame").remove();
+						$self.find("#stranitsa-right-frame, #stranitsa-left-frame").detach();
 						$self.data('stranitsa-dragging', null);
 						animation = null;
 					}
@@ -248,13 +258,6 @@
 				}
 			}
 		});
-	};
-	var makePage = function(options, index) {
-		var $page = $('<div class="stranitsa-page ' + (index % 2 == 0 ? options.classes.pages.left : options.classes.pages.right) + '"/>').css({backgroundColor:'white', width:options.width / 2});
-		options.render(index, options).done(function(content) {
-			$page.html(content);
-		});
-		return $page;
 	};
 }(jQuery));
 
