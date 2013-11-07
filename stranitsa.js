@@ -10,13 +10,18 @@
 	$.fn.stranitsa.register = function(handle, callback) {
 		handlers[handle] = callback;
 	};
+	$.fn.stranitsa.register('preload', function(options) {
+		return this.each(function() {
+			preload.call(this, $.extend(true, {}, $.fn.stranitsa.defaults, options));
+		});
+	});
 	$.fn.stranitsa.register('init', function(options) {
 		return this.each(function() {
 			init.call(this, $.extend(true, {}, $.fn.stranitsa.defaults, options));
 		});
 	});
 	$.fn.stranitsa.defaults = {
-		width:400,
+		width:800,
 		height:0,
 		animationSpeed:250,
 		hasCover:true,
@@ -35,11 +40,19 @@
 			}
 		},
 		render:function(index, options) {
-			return $(options.pages[index]).clone();
+			var defer = $.Deferred();
+			defer.resolve($(options.pages[index]).clone());
+			return defer;
 		}
+	};
+	var preload = function(options) {
+		$(this).addClass('stranitsa').data('stranitsa', options).width(options.width);
 	};
 	var init = function(options) {
 		var $self = $(this);
+		if(!$self.hasClass('stranitsa')) {
+			preload.call(this, options);
+		}
 		if(options.hasCover) {
 			// create an invisible first page
 			$self.prepend($('<div/>').css({width:options.width / 2,height:options.height,backgroundColor:'white'}));
@@ -53,23 +66,11 @@
 			});
 			$self.height(Math.max($self.height(), scale * $(this).height()));
 		}).detach();
-		$self.addClass('stranitsa');
-		var $prevAction = $('<div class="stranitsa-action ' + options.classes.actions.prev + '"/>');
 		var $leftPage = makePage(options, options.page);
 		var $rightPage = makePage(options, options.page + 1);
-		var $nextAction = $('<div class="stranitsa-action ' + options.classes.actions.next + '"/>');
-		$self.append($prevAction)
-			.append($nextAction)
-			.append($leftPage)
-			.append($rightPage);
-		$self.data('stranitsa', options);
-		// render the content
-		$self.width(options.width);
-		$self.css({position:'relative', overflow:'hidden'});
+		$self.append($leftPage).append($rightPage);
 		$leftPage.css({position:'absolute',top:0,left:0});
 		$rightPage.css({position:'absolute',top:0,left:options.width / 2});
-		$prevAction.css({zIndex:15}).click(function() {/*prevPage.call($self, options)*/});
-		$nextAction.css({zIndex:15}).click(function() {/*nextPage.call($self, options)*/});
 		function relativeEventCoordinates(e, parent) {
 			var unnormalized = {x:e.pageX - parent.offset().left, y:e.pageY - parent.offset().top};
 			var origin = {x:(options.width / 2) * $self.scale(), y:0};
@@ -157,16 +158,24 @@
 				clickTimer = setTimeout(function() {
 					clickTimer = null;
 				}, options.doubleClickTimeout);
-				dragging = true;
 				var coordinates = relativeEventCoordinates(e, $(this));
 				coordinates.x = (coordinates.x > options.width / 2 ? options.width : 0);
 				coordinates.y = 0;
-				$self.data('stranitsa-dragging', coordinates);
 				if(coordinates.x == options.width) {
-					options.page += 2;
+					if(options.page + 2 < options.pages.length) {
+						options.page += 2;
+					} else {
+						return;
+					}
 				} else {
-					options.page -= 2;
+					if(options.page >= 2) {
+						options.page -= 2;
+					} else {
+						return;
+					}
 				}
+				dragging = true;
+				$self.data('stranitsa-dragging', coordinates);
 				var $left = makePage(options, options.page).hide();
 				var $right = makePage(options, options.page + 1).hide();
 				$self.append($('<div id="stranitsa-right-frame"/>').css({overflow:'hidden','z-index':10}));
@@ -210,8 +219,7 @@
 					},
 					complete:function() {
 						if(this.x != $self.data('stranitsa-dragging').x) {
-							
-							$self.children(".stranitsa-page").detach();
+							$self.children(".stranitsa-page").remove();
 							$self.append($self.find("#stranitsa-right-frame").children().rotate(0).css({position:'absolute',top:0,left:options.width / 2}));
 							$self.append($self.find("#stranitsa-left-frame").children().rotate(0).css({position:'absolute',top:0,left:0}));
 						} else {
@@ -227,18 +235,21 @@
 					}
 				});
 			}
-			if(clickTimer) {
-				// we recently clicked down
-				clearTimeout(clickTimer);
-				clickTimer = setTimeout(function() { mouseUp(); clickTimer = null; }, options.doubleClickTimeout);
-			} else {
-				mouseUp();
+			if(dragging) {
+				if(clickTimer) {
+					clearTimeout(clickTimer);
+					clickTimer = setTimeout(function() { mouseUp(); clickTimer = null; }, options.doubleClickTimeout);
+				} else {
+					mouseUp();
+				}
 			}
 		});
 	};
 	var makePage = function(options, index) {
-		var content = options.render.call(null, index, options);
-		var $page = $('<div class="stranitsa-page ' + (index % 2 == 0 ? options.classes.pages.left : options.classes.pages.right) + '"/>').css({backgroundColor:'white', width:options.width / 2}).html(content);
+		var $page = $('<div class="stranitsa-page ' + (index % 2 == 0 ? options.classes.pages.left : options.classes.pages.right) + '"/>').css({backgroundColor:'white', width:options.width / 2});
+		options.render(index, options).done(function(content) {
+			$page.html(content);
+		});
 		return $page;
 	};
 }(jQuery));

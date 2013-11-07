@@ -4,29 +4,59 @@
 		options = $.extend(true, {}, $.fn.stranitsa.defaults, options);
 		PDFJS.disableWorker = true;
 		var $target = this;
-		PDFJS.getDocument(path).then(function(pdf) {
-			(function renderQueue(index, onComplete) {
-				if(index > pdf.numPages) {
-					onComplete();
-				} else {
-					pdf.getPage(index).then(function(page) {
-						var $page = $("<div/>");
-						renderPage($page, page, 612, function() {
-							$target.append($page);
-							renderQueue(index + 1, onComplete);
-						});
+		var $progress = $("<div id='stranitsa-progress'/>");
+		
+		var $pages = {};
+		
+		options.render = function(index, options) {
+			var defer = $.Deferred();
+			function resolve($page) {
+				var scale = options.width / (2 * $page.width());
+				$page.scale(scale).css({
+					'transform-origin': '0% 0%',
+				});
+				defer.resolve($page);
+			}
+			if(index in $pages) {
+				resolve($pages[index]);
+			} else {
+				pdf.getPage(index + 1).then(function(page) {
+					var $page = $("<div/>");
+					renderPage($page, page, $(window).width, function() {
+						resolve($pages[index] = $page);
 					});
+				});
+			}
+			return defer;
+		};
+		PDFJS.getDocument(path).then(function(p) {
+			pdf = p;
+			for(var i = 0; i < pdf.numPages; i++) {
+				$target.append($("<div/>"));
+			}
+			$target.stranitsa(options);
+			(function renderQueue(index) {
+				if(index <= pdf.numPages) {
+					if(index - 1 in $pages) {
+						renderQueue(index + 1);
+					} else {
+						pdf.getPage(index).then(function(page) {
+							var $page = $("<div/>");
+							renderPage($page, page, $(window).width, function() {
+								$pages[index - 1] = $page;
+								renderQueue(index + 1);
+							});
+						});
+					}
 				}
-			})(1, function onComplete() {
-				$target.stranitsa(options);
-			});
+			})(1);
 		}, function(message, exception) {
 			console.log(message);
 			console.log(exception);
 		});
 	});
 	function renderPage($target, page, width, callback) {
-		var viewport = page.getViewport(width / 612);
+		var viewport = page.getViewport(1);
 		var $canvas = $("<canvas></canvas>");
 		var canvas = $canvas.get(0);
 		var context = canvas.getContext("2d");
@@ -72,7 +102,7 @@
 				callback();
 			});
 		});
-		$target.css("height", canvas.height + "px").css("width", canvas.width + "px");
+		$target.css("width", canvas.width);
 		
 	}
 }(jQuery));
