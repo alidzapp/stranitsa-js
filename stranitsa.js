@@ -154,37 +154,41 @@
 					$self.animate({scale:1,top:zooming.top,left:zooming.left}, options.animationDuration);
 					zooming = null;
 				}
+				e.preventDefault();
+				return false;
 			} else {
 				clickTimer = setTimeout(function() {
 					clickTimer = null;
 				}, options.doubleClickTimeout);
-				var coordinates = relativeEventCoordinates(e, $(this));
-				coordinates.x = (coordinates.x > options.width / 2 ? options.width : 0);
-				coordinates.y = 0;
-				if(coordinates.x == options.width) {
-					if(options.page + 2 < options.pages.length) {
-						options.page += 2;
+				if(!zooming) {
+					var coordinates = relativeEventCoordinates(e, $(this));
+					coordinates.x = (coordinates.x > options.width / 2 ? options.width : 0);
+					coordinates.y = 0;
+					if(coordinates.x == options.width) {
+						if(options.page + 2 < options.pages.length) {
+							options.page += 2;
+						} else {
+							return;
+						}
 					} else {
-						return;
+						if(options.page >= 2) {
+							options.page -= 2;
+						} else {
+							return;
+						}
 					}
-				} else {
-					if(options.page >= 2) {
-						options.page -= 2;
-					} else {
-						return;
-					}
+					dragging = true;
+					$self.data('stranitsa-dragging', coordinates);
+					var $left = makePage(options, options.page).hide();
+					var $right = makePage(options, options.page + 1).hide();
+					$self.append($('<div id="stranitsa-right-frame"/>').css({overflow:'hidden','z-index':10}));
+					$self.append($('<div id="stranitsa-left-frame"/>').css({overflow:'hidden','z-index':11}));
+					$self.find("#stranitsa-left-frame").append($left);
+					$self.find("#stranitsa-right-frame").append($right);
+					e.preventDefault();
+					return false;
 				}
-				dragging = true;
-				$self.data('stranitsa-dragging', coordinates);
-				var $left = makePage(options, options.page).hide();
-				var $right = makePage(options, options.page + 1).hide();
-				$self.append($('<div id="stranitsa-right-frame"/>').css({overflow:'hidden','z-index':10}));
-				$self.append($('<div id="stranitsa-left-frame"/>').css({overflow:'hidden','z-index':11}));
-				$self.find("#stranitsa-left-frame").append($left);
-				$self.find("#stranitsa-right-frame").append($right);
 			}
-			e.preventDefault();
-			return false;
 		}).mousemove(function(e) {
 			if(dragging) {
 				renderEarmark(relativeEventCoordinates(e, $self));

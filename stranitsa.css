@@ -33,3 +33,17 @@
 	background-color:#C00;
 	height:22px;
 }
+.stranitsa .textLayer {
+	position:absolute !important;
+	color:transparent;
+}
+.stranitsa .textLayer * {
+	position:absolute;
+}
+.textLayer .highlight {
+    margin: -1px;
+    padding: 1px;
+
+    background-color: rgba(180, 0, 170, 0.2);
+    border-radius: 4px;
+}

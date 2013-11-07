@@ -84,7 +84,7 @@
 		context._scaleX = width;
 		context._scaleY = height;
 		context.scale(width, height);*/
-		//$target.append($textLayerDiv);
+		$target.append($textLayerDiv);
 		
 		page.getTextContent().then(function (textContent) {
 			var textLayer = new TextLayerBuilder({
