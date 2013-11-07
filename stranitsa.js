@@ -17,11 +17,11 @@
 	});
 	$.fn.stranitsa.defaults = {
 		width:400,
-		height:600,
+		height:0,
 		animationSpeed:250,
 		hasCover:true,
 		page:0,
-		scaleFactor:3,
+		scaleFactor:2,
 		doubleClickTimeout:100,
 		animationDuration:250,
 		classes:{
@@ -44,13 +44,14 @@
 			// create an invisible first page
 			$self.prepend($('<div/>').css({width:options.width / 2,height:options.height,backgroundColor:'white'}));
 		}
-		options.pages = $self.children().each(function() {
+		options.pages = $self.height(options.height).children().each(function() {
 			$(this).data('stranitsa-width', $(this).width());
 			$(this).data('stranitsa-height', $(this).height());
 			var scale = options.width / (2 * $(this).width());
 			$(this).scale(scale).css({
 				'transform-origin': '0% 0%',
 			});
+			$self.height(Math.max($self.height(), scale * $(this).height()));
 		}).detach();
 		$self.addClass('stranitsa');
 		var $prevAction = $('<div class="stranitsa-action ' + options.classes.actions.prev + '"/>');
@@ -63,7 +64,7 @@
 			.append($rightPage);
 		$self.data('stranitsa', options);
 		// render the content
-		$self.height(options.height).width(options.width);
+		$self.width(options.width);
 		$self.css({position:'relative', overflow:'hidden'});
 		$leftPage.css({position:'absolute',top:0,left:0});
 		$rightPage.css({position:'absolute',top:0,left:options.width / 2});
@@ -71,12 +72,13 @@
 		$nextAction.css({zIndex:15}).click(function() {/*nextPage.call($self, options)*/});
 		function relativeEventCoordinates(e, parent) {
 			var unnormalized = {x:e.pageX - parent.offset().left, y:e.pageY - parent.offset().top};
-			var vector = {x:options.width / 2 - unnormalized.x, y:unnormalized.y};
+			var origin = {x:(options.width / 2) * $self.scale(), y:0};
+			var vector = {x:unnormalized.x - origin.x, y:unnormalized.y - origin.y};
 			var distance = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
-			var normDistance = Math.min(distance, options.width / 2);
+			var normDistance = Math.min(distance, options.width * $self.scale() / 2);
 			vector.x *= normDistance / distance;
 			vector.y *= normDistance / distance;
-			return {x:options.width / 2 - vector.x, y:vector.y};
+			return {x:(vector.x + origin.x) / $self.scale(), y:vector.y / $self.scale()};
 		}
 		function getMidpoint(a, b) {
 			return {x:(a.x + b.x) / 2, y:(a.y + b.y) / 2};
@@ -127,7 +129,7 @@
 		var animation = null;
 		var dragging = false;
 		var clickTimer = null;
-		var zooming = false;
+		var zooming = null;
 		$self.mousedown(function(e) {
 			if(animation) {
 				animation.finish();
@@ -137,18 +139,26 @@
 				clearTimeout(clickTimer);
 				clickTimer = null;
 				if(!zooming) {
-					zooming = true;
+					zooming = $self.position();
 					$self.css({'transform-origin': '0% 0%'}).animate({scale:options.scaleFactor}, options.animationDuration);
+					var anim = {};
+					if($self.width() * options.scaleFactor < $(window).width()) {
+						anim.left = ($(window).width() - $self.width() * options.scaleFactor) / 2;
+					}
+					if($self.height() * options.scaleFactor < $(window).height()) {
+						anim.top = ($(window).height() - $self.height() * options.scaleFactor) / 2;
+					}
+					$self.animate(anim, options.animationDuration);
 				} else {
-					zooming = false;
-					$self.css({'position':'relative',top:0,left:0}).animate({scale:1}, options.animationDuration);
+					$self.animate({scale:1,top:zooming.top,left:zooming.left}, options.animationDuration);
+					zooming = null;
 				}
 			} else {
 				clickTimer = setTimeout(function() {
 					clickTimer = null;
 				}, options.doubleClickTimeout);
 				dragging = true;
-				var coordinates = relativeEventCoordinates(e, $(this).parent());
+				var coordinates = relativeEventCoordinates(e, $(this));
 				coordinates.x = (coordinates.x > options.width / 2 ? options.width : 0);
 				coordinates.y = 0;
 				$self.data('stranitsa-dragging', coordinates);
@@ -168,19 +178,24 @@
 			return false;
 		}).mousemove(function(e) {
 			if(dragging) {
-				renderEarmark(relativeEventCoordinates(e, $(this).parent()));
+				renderEarmark(relativeEventCoordinates(e, $self));
 			} else if(zooming) {
 				var width = $self.width() * $self.scale();
 				var height = $self.height() * $self.scale();
-				var left = e.pageX / $(window).width();
-				var top = e.pageY / $(window).height();
-				$self.css({position:'absolute', left:left * ($(window).width() - width), top:top * ($(window).height() - height)});
+				$self.css('position', 'absolute');
+				if(width >= $(window).width()) {
+					var left = (e.pageX / $(window).width()) * 1.5 - 0.25;
+					$self.css('left', left * ($(window).width() - width));
+				}
+				if(height >= $(window).height()) {
+					var top = (e.pageY / $(window).height()) * 1.5 - 0.25;
+					$self.css('top', top * ($(window).height() - height));
+				}
 			}
 		}).mouseup(function(e) {
-			var $parent = $(this).parent();
 			function mouseUp() {
 				dragging = false;
-				var coords = relativeEventCoordinates(e, $parent);
+				var coords = relativeEventCoordinates(e, $self);
 				var target;
 				if($self.data('stranitsa-dragging').x == options.width) {
 					target = (coords.x > options.width / 2 && clickTimer == null ? $self.data('stranitsa-dragging') : {x:0, y:0});

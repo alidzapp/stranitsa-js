@@ -35,3 +35,6 @@
 	box-shadow:inset 25px 0px 25px -25px #555;
 	-webkit-box-shadow:inset 25px 0px 25px -25px #555;
 }
+.stranitsa {
+	box-shadow:5px 5px 25px 5px #555;
+}
