@@ -2,6 +2,8 @@
 <html>
 	<head>
 		<script type="text/javascript" src="pdf.js"></script>
+		<script type="text/javascript" src="textlayerbuilder.pdf.js"></script>
+		<script type="text/javascript" src="uiutils.pdf.js"></script>
 		<link rel="stylesheet" type="text/css" href="stranitsa.css">
 		<script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 		<script type="text/javascript" src="stranitsa.js"></script>
@@ -9,31 +11,27 @@
 	</head>
 	<body>
 		<div id="pages">
-			<div class="page">
-				Page 1
-			</div>
-			<div class="page">
-				Page 2
-			</div>
-			<div class="page">
-				Page 3
-			</div>
-			<div class="page">
-				Page 4
-			</div>
-			<div class="page">
-				Page 5
-			</div>
+			<img src="http://turnjs.com/samples/magazine1/pages/1-large.jpg">
+			<img src="http://turnjs.com/samples/magazine1/pages/2-large.jpg">
+			<img src="http://turnjs.com/samples/magazine1/pages/3-large.jpg">
+			<img src="http://turnjs.com/samples/magazine1/pages/4-large.jpg">
+			<img src="http://turnjs.com/samples/magazine1/pages/5-large.jpg">
+			<img src="http://turnjs.com/samples/magazine1/pages/6-large.jpg">
+			<img src="http://turnjs.com/samples/magazine1/pages/7-large.jpg">
+			<img src="http://turnjs.com/samples/magazine1/pages/8-large.jpg">
+			<img src="http://turnjs.com/samples/magazine1/pages/9-large.jpg">
+			<img src="http://turnjs.com/samples/magazine1/pages/10-large.jpg">
+			<img src="http://turnjs.com/samples/magazine1/pages/11-large.jpg">
+			<img src="http://turnjs.com/samples/magazine1/pages/12-large.jpg">
 		</div>
 		<div id="pdf">
-		
 		</div>
 		<script type="text/javascript">
 			$(document).ready(function() {
 				$("#pages").stranitsa({
-					width:400, height:300
+					width:800
 				});
-				$("#pdf").stranitsa.pdf('http://www.worldwidewhat.net/extras/render-pdf-files-with-html5/example/compressed.tracemonkey-pldi-09.pdf');
+				//$("#pdf").stranitsa('pdf', 'http://www.worldwidewhat.net/extras/render-pdf-files-with-html5/example/compressed.tracemonkey-pldi-09.pdf');
 			});
 		</script>
 	</body>

@@ -1,18 +1,32 @@
 (function($) {
-	$.fn.stranitsa.pdf = function(path, options) {
+	$.fn.stranitsa.register('pdf', function(path, options) {
+		var pdf;
+		options = $.extend(true, {}, $.fn.stranitsa.defaults, options);
+		PDFJS.disableWorker = true;
+		var $target = this;
 		PDFJS.getDocument(path).then(function(pdf) {
-			// then render
-			for(var i = 1; i <= pdf.numPages; i++) {
-				var $page = $("<div/>");
-				pdf.getPage(i).then(function(page){ renderPage($target, page) });
-				target.append($page);
-			}
+			(function renderQueue(index, onComplete) {
+				if(index > pdf.numPages) {
+					onComplete();
+				} else {
+					pdf.getPage(index).then(function(page) {
+						var $page = $("<div/>");
+						renderPage($page, page, 612, function() {
+							$target.append($page);
+							renderQueue(index + 1, onComplete);
+						});
+					});
+				}
+			})(1, function onComplete() {
+				$target.stranitsa(options);
+			});
+		}, function(message, exception) {
+			console.log(message);
+			console.log(exception);
 		});
-		// then init
-		//this.stranitsa(options);
-	};
-	function renderPage($target, page) {
-		var viewport = page.getViewport(scale);
+	});
+	function renderPage($target, page, width, callback) {
+		var viewport = page.getViewport(width / 612);
 		var $canvas = $("<canvas></canvas>");
 		var canvas = $canvas.get(0);
 		var context = canvas.getContext("2d");
@@ -28,23 +42,20 @@
 				top: canvasOffset.top,
 				left: canvasOffset.left
 			});
-		var outputScale = getOutputScale();
-		if (outputScale.scaled) {
-			var cssScale = 'scale(' + (1 / outputScale.sx) + ', ' +
-				(1 / outputScale.sy) + ')';
-				CustomStyle.setProp('transform', canvas, cssScale);
-				CustomStyle.setProp('transformOrigin', canvas, '0% 0%');
-			if ($textLayerDiv.get(0)) {
-				CustomStyle.setProp('transform', $textLayerDiv.get(0), cssScale);
-				CustomStyle.setProp('transformOrigin', $textLayerDiv.get(0), '0% 0%');
-			}
+		
+		/*var cssScale = 'scale(' + (1 / width) + ', ' +
+			(1 / height) + ')';
+			CustomStyle.setProp('transform', canvas, cssScale);
+			CustomStyle.setProp('transformOrigin', canvas, '0% 0%');
+		if ($textLayerDiv.get(0)) {
+			CustomStyle.setProp('transform', $textLayerDiv.get(0), cssScale);
+			CustomStyle.setProp('transformOrigin', $textLayerDiv.get(0), '0% 0%');
 		}
-		context._scaleX = outputScale.sx;
-		context._scaleY = outputScale.sy;
-		if (outputScale.scaled) {
-			context.scale(outputScale.sx, outputScale.sy);
-		}
-		$pdfContainer.append($textLayerDiv);
+		context._scaleX = width;
+		context._scaleY = height;
+		context.scale(width, height);*/
+		//$target.append($textLayerDiv);
+		
 		page.getTextContent().then(function (textContent) {
 			var textLayer = new TextLayerBuilder({
 				textLayerDiv: $textLayerDiv.get(0),
@@ -56,9 +67,12 @@
 				viewport: viewport,
 				textLayer: textLayer
 			};
-			page.render(renderContext);
+			page.render(renderContext).then(function() {
+				$target.append($('<img/>', {src: canvas.toDataURL('image/png')}));
+				callback();
+			});
 		});
 		$target.css("height", canvas.height + "px").css("width", canvas.width + "px");
-		$target.append($canvas);
+		
 	}
 }(jQuery));
