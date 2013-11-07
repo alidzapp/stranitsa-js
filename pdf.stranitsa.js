@@ -20,7 +20,7 @@
 			if(index in $pages) {
 				resolve($pages[index]);
 			} else {
-				pdf.getPage(index + 1).then(function(page) {
+				pdf.getPage(index).then(function(page) {
 					var $page = $("<div/>");
 					renderPage($page, page, $(window).width, function() {
 						resolve($pages[index] = $page);
@@ -37,13 +37,13 @@
 			$target.stranitsa(options);
 			(function renderQueue(index) {
 				if(index <= pdf.numPages) {
-					if(index - 1 in $pages) {
+					if(index in $pages) {
 						renderQueue(index + 1);
 					} else {
 						pdf.getPage(index).then(function(page) {
 							var $page = $("<div/>");
 							renderPage($page, page, $(window).width, function() {
-								$pages[index - 1] = $page;
+								$pages[index] = $page;
 								renderQueue(index + 1);
 							});
 						});
