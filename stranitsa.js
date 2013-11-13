@@ -27,7 +27,7 @@
 		hasCover:true,
 		page:0,
 		scaleFactor:2,
-		doubleClickTimeout:100,
+		doubleClickTimeout:200,
 		animationDuration:250,
 		classes:{
 			actions: {
@@ -41,7 +41,11 @@
 		},
 		render:function(index, options) {
 			var defer = $.Deferred();
-			defer.resolve($(options.pages[index]).clone(true, true));
+			if(options.pages[index]) {
+				defer.resolve($(options.pages[index]));
+			} else {
+				defer.reject();
+			}
 			return defer;
 		}
 	};
@@ -53,32 +57,32 @@
 		if(!$self.hasClass('stranitsa')) {
 			preload.call(this, options);
 		}
-		if(options.hasCover) {
-			// create an invisible first page
-			$self.prepend($('<div/>').css({width:options.width / 2,height:options.height,backgroundColor:'white'}));
-		}
 		options.pages = $self.height(options.height).children().each(function() {
 			$(this).data('stranitsa-width', $(this).width());
 			$(this).data('stranitsa-height', $(this).height());
 			var scale = options.width / (2 * $(this).width());
-			$(this).scale(scale).css({
-				'transform-origin': '0% 0%',
-			});
+			$(this).scale(scale);
 			$self.height(Math.max($self.height(), scale * $(this).height()));
 		}).detach();
-		var $leftPage = makePage(options, options.page);
-		var $rightPage = makePage(options, options.page + 1);
+		if(options.hasCover) {
+			options.pages.splice(0, 0, null);
+		}
+		var $leftPage = makePage(options, options.page).translate(0, 0);
+		var $rightPage = makePage(options, options.page + 1).translate(options.width / 2, 0);
 		$self.append($leftPage).append($rightPage);
-		$leftPage.css({position:'absolute',top:0,left:0});
-		$rightPage.css({position:'absolute',top:0,left:options.width / 2});
+		var animation = null;
+		var dragging = false;
+		var clickTimer = null;
+		var zooming = null;
 		function makePage(options, index) {
-			var $page = $('<div class="stranitsa-page ' + (index % 2 == 0 ? options.classes.pages.left : options.classes.pages.right) + '"/>').css({backgroundColor:'white'});
+			var $page = $('<div class="stranitsa-page ' + (index % 2 == 0 ? options.classes.pages.left : options.classes.pages.right) + '"/>').css('background-color','white');
 			options.render(index, options).done(function(content) {
 				var ratio = options.width / (2 * content.data('stranitsa-width'));
-				$page.width(options.width / 2);
-				$page.height(content.data('stranitsa-height') * ratio);
+				$page.width(options.width / 2).height(content.data('stranitsa-height') * ratio).html(content);
 				$self.height(Math.max($self.height(), $page.height()));
-				$page.html(content);
+			}).fail(function() {
+				$page.width(options.width / 2).height($self.height());
+				$page.removeClass('stranitsa-page').addClass('stranitsa-nonce');
 			});
 			return $page;
 		};
@@ -90,7 +94,7 @@
 			var normDistance = Math.min(distance, options.width * $self.scale() / 2);
 			vector.x *= normDistance / distance;
 			vector.y *= normDistance / distance;
-			return {x:(vector.x + origin.x) / $self.scale(), y:vector.y / $self.scale()};
+			return {x:(vector.x + origin.x) / $self.scale(), y:Math.max(0, vector.y / $self.scale())};
 		}
 		function getMidpoint(a, b) {
 			return {x:(a.x + b.x) / 2, y:(a.y + b.y) / 2};
@@ -98,50 +102,111 @@
 		function getSlope(a, b) {
 			return (b.y - a.y) / (b.x - a.x);
 		}
+		function renderPage(index) {
+			var page = Math.floor(index / 2) * 2;
+			if(page == options.page) {
+				return;
+			}
+			renderFrames(page);
+			if(page < options.page) {
+				animation = $({x:0, y:0});
+				target = $({x:options.width, y:0});
+			} else {
+				animation = $({x:options.width, y:0});
+				target = $({x:0, y:0});
+			}
+			animation.animate(target, {
+				duration:options.animationDuration,
+				step:function() {
+					renderEarmark(this);
+				},
+				complete:function() {
+					detachFrames();
+					animation = null;
+				}
+			});
+		}
+		function detachFrames(replace) {
+			if(replace) {
+				$self.children(".stranitsa-page, .stranitsa-nonce").detach();
+				$self.append($self.find("#stranitsa-right-frame").children().rotate(0).translate(options.width / 2, 0));
+				$self.append($self.find("#stranitsa-left-frame").children().rotate(0).translate(0, 0));
+			}
+			$self.find("#stranitsa-right-frame, #stranitsa-left-frame").detach();
+		}
+		function renderFrames(index) {
+			var $leftFrame = $('<div id="stranitsa-left-frame"/>');
+			var $rightFrame = $('<div id="stranitsa-right-frame"/>');
+			$self.append($rightFrame.css({overflow:'hidden','z-index':10}));
+			$self.append($leftFrame.css({overflow:'hidden','z-index':11}));
+			var $leftPage = makePage(options, options.page).hide();
+			var $rightPage = makePage(options, options.page + 1).hide();
+			$leftFrame.append($leftPage);
+			$rightFrame.append($rightPage);
+			if($leftPage.hasClass('stranitsa-nonce')) {
+				$leftFrame.css('background-color', 'white');
+			}
+			if($rightPage.hasClass('stranitsa-nonce')) {
+				$rightFrame.css('background-color', 'white');
+			}
+		}
 		function renderEarmark(position) {
-			var origin = $self.data('stranitsa-dragging');
-			if(origin) {
+			if(origin = $self.data('stranitsa-dragging')) {
 				var size = options.width;
 				var midpoint = getMidpoint(position, origin);
-				var slope = -1 / getSlope(position, origin);
 				var theta = Math.atan(getSlope(position, origin));
-				$self.find("#stranitsa-right-frame").rotate(theta + 'rad').css({
-					'transform-origin': '0% 0%',
-					'position': 'absolute',
-					'left': midpoint.x + size * Math.sin(theta),
-					'top': midpoint.y - size * Math.cos(theta),
-					width:2 * size,
-					height:2 * size
-				});
 				var dx = position.x - midpoint.x;
 				var dy = position.y - midpoint.y;
 				var distance = Math.sqrt(dx * dx + dy * dy);
-				$self.find("#stranitsa-right-frame").children().show().rotate((dx < 0 ? -theta : theta) + 'rad').css({
-					'transform-origin': '0% 0%',
-					'position':'absolute',
-					left:distance - options.width / 2 * Math.cos(theta),
-					top:size + (dx < 0 ? 1 : -1) * options.width / 2 * Math.sin(theta)
-				});
-				$self.find("#stranitsa-left-frame").rotate(theta + 'rad').css({
-					'transform-origin': '0% 0%',
-					'position': 'absolute',
-					'left': midpoint.x - 2 * size * Math.cos(theta) + size * Math.sin(theta),
-					'top': midpoint.y - 2 * size * Math.sin(theta) - size * Math.cos(theta),
-					width:2 * size,
-					height:2 * size
-				});
-				$self.find("#stranitsa-left-frame").children().show().rotate((dx < 0 ? theta : -theta) + 'rad').css({
-					'transform-origin': '0% 0%',
-					'position':'absolute',
-					'top':size,
-					'left':2 * size - distance
-				});
+				$self.find("#stranitsa-right-frame").rotate(theta + 'rad').translate(
+					midpoint.x + size * Math.sin(theta),
+					midpoint.y - size * Math.cos(theta)
+				).width(2 * size).height(2 * size);
+				$self.find("#stranitsa-right-frame").children().show().rotate(dx < 0 ? -theta : theta).translate(
+					distance - options.width / 2 * Math.cos(theta),
+					size + (dx < 0 ? 1 : -1) * options.width / 2 * Math.sin(theta)
+				);
+				$self.find("#stranitsa-left-frame").rotate(theta + 'rad').translate(
+					midpoint.x - 2 * size * Math.cos(theta) + size * Math.sin(theta),
+					midpoint.y - 2 * size * Math.sin(theta) - size * Math.cos(theta)
+				).width(2 * size).height(2 * size);
+				$self.find("#stranitsa-left-frame").children().show().rotate(dx < 0 ? theta : -theta).translate(
+					2 * size - distance, size
+				);
 			}
 		}
-		var animation = null;
-		var dragging = false;
-		var clickTimer = null;
-		var zooming = null;
+		function zoomTo(scale, x, y) {
+			if(scale == 1) {
+				clearZoom();
+			} else {
+				$self.data('stranitsa-scale', scale).finish();
+				$self.animate($.extend({scale:scale}, getTranslation(x, y, scale)), options.animationDuration);
+			}
+		}
+		function getTranslation(x, y, scale) {
+			scale = scale || $self.scale();
+			var width = $self.width() * scale;
+			var height = $self.height() * scale;
+			var trans = {};
+			if(width >= $(window).width()) {
+				var left = (x / $(window).width()) * 1.5 - 0.25;
+				trans.translateX = left * ($(window).width() - width);
+			} else {
+				trans.translateX = ($(window).width() - width) / 2;
+			}
+			if(height >= $(window).height()) {
+				var top = (y / $(window).height()) * 1.5 - 0.25;
+				trans.translateY = top * ($(window).height() - height);
+			} else {
+				trans.translateY = ($(window).height() - height) / 2;
+			}
+			console.log(width, $(window).width());
+			return trans;
+		}
+		function clearZoom() {
+			$self.animate({scale:1,translateY:zooming.top,translateX:zooming.left}, options.animationDuration);
+			zooming = null;
+		}
 		$self.mousedown(function(e) {
 			if(animation) {
 				animation.finish();
@@ -151,18 +216,9 @@
 				clickTimer = null;
 				if(!zooming) {
 					zooming = $self.position();
-					$self.css({'transform-origin': '0% 0%'}).animate({scale:options.scaleFactor}, options.animationDuration);
-					var anim = {};
-					if($self.width() * options.scaleFactor < $(window).width()) {
-						anim.left = ($(window).width() - $self.width() * options.scaleFactor) / 2;
-					}
-					if($self.height() * options.scaleFactor < $(window).height()) {
-						anim.top = ($(window).height() - $self.height() * options.scaleFactor) / 2;
-					}
-					$self.animate(anim, options.animationDuration);
+					zoomTo(options.scaleFactor, e.pageX, e.pageY);
 				} else {
-					$self.animate({scale:1,top:zooming.top,left:zooming.left}, options.animationDuration);
-					zooming = null;
+					clearZoom();
 				}
 				e.preventDefault();
 				return false;
@@ -189,12 +245,7 @@
 					}
 					dragging = true;
 					$self.data('stranitsa-dragging', coordinates);
-					var $left = makePage(options, options.page).hide();
-					var $right = makePage(options, options.page + 1).hide();
-					$self.append($('<div id="stranitsa-right-frame"/>').css({overflow:'hidden','z-index':10}));
-					$self.append($('<div id="stranitsa-left-frame"/>').css({overflow:'hidden','z-index':11}));
-					$self.find("#stranitsa-left-frame").append($left);
-					$self.find("#stranitsa-right-frame").append($right);
+					renderFrames(options.page);
 					e.preventDefault();
 					return false;
 				}
@@ -203,17 +254,8 @@
 			if(dragging) {
 				renderEarmark(relativeEventCoordinates(e, $self));
 			} else if(zooming) {
-				var width = $self.width() * $self.scale();
-				var height = $self.height() * $self.scale();
-				$self.css('position', 'absolute');
-				if(width >= $(window).width()) {
-					var left = (e.pageX / $(window).width()) * 1.5 - 0.25;
-					$self.css('left', left * ($(window).width() - width));
-				}
-				if(height >= $(window).height()) {
-					var top = (e.pageY / $(window).height()) * 1.5 - 0.25;
-					$self.css('top', top * ($(window).height() - height));
-				}
+				var trans = getTranslation(e.pageX, e.pageY);
+				$self.css('position', 'fixed').translate(trans.translateX, trans.translateY);
 			}
 		}).mouseup(function(e) {
 			function mouseUp() {
@@ -229,21 +271,17 @@
 				animation.animate(target, {
 					duration:options.animationDuration,
 					step:function() {
-						renderEarmark(this);
+						renderEarmark(this)
 					},
 					complete:function() {
-						if(this.x != $self.data('stranitsa-dragging').x) {
-							$self.children(".stranitsa-page").detach();
-							$self.append($self.find("#stranitsa-right-frame").children().rotate(0).css({position:'absolute',top:0,left:options.width / 2}));
-							$self.append($self.find("#stranitsa-left-frame").children().rotate(0).css({position:'absolute',top:0,left:0}));
-						} else {
+						detachFrames(this.x != $self.data('stranitsa-dragging').x);
+						if(this.x == $self.data('stranitsa-dragging').x) {
 							if(this.x == options.width) {
 								options.page -= 2;
 							} else {
 								options.page += 2;
 							}
 						}
-						$self.find("#stranitsa-right-frame, #stranitsa-left-frame").detach();
 						$self.data('stranitsa-dragging', null);
 						animation = null;
 					}
@@ -256,6 +294,17 @@
 				} else {
 					mouseUp();
 				}
+			}
+		}).mousewheel(function(e, delta) {
+			if(zooming) {
+				zoomTo(Math.max(1, $self.data('stranitsa-scale') + delta / 4), e.pageX, e.pageY);
+				e.preventDefault();
+				return false;
+			} else if(delta > 0) {
+				zooming = $self.position();
+				zoomTo(options.scaleFactor);
+				e.preventDefault();
+				return false;
 			}
 		});
 	};
@@ -270,109 +319,74 @@
  * 2009-2012 Zachary Johnson www.zachstronaut.com
  */
 (function ($) {
-    // Updated 2010.11.06
-    // Updated 2012.10.13 - Firefox 16 transform style returns a matrix rather than a string of transform functions.  This broke the features of this jQuery patch in Firefox 16.  It should be possible to parse the matrix for both scale and rotate (especially when scale is the same for both the X and Y axis), however the matrix does have disadvantages such as using its own units and also 45deg being indistinguishable from 45+360deg.  To get around these issues, this patch tracks internally the scale, rotation, and rotation units for any elements that are .scale()'ed, .rotate()'ed, or animated.  The major consequences of this are that 1. the scaled/rotated element will blow away any other transform rules applied to the same element (such as skew or translate), and 2. the scaled/rotated element is unaware of any preset scale or rotation initally set by page CSS rules.  You will have to explicitly set the starting scale/rotation value.
-    
     function initData($el) {
         var _ARS_data = $el.data('_ARS_data');
         if (!_ARS_data) {
             _ARS_data = {
-                rotateUnits: 'deg',
+                rotateUnits: 'rad',
                 scale: 1,
-                rotate: 0
+                rotate: 0,
+                translate: {x:0, y:0}
             };
-            
             $el.data('_ARS_data', _ARS_data);
         }
-        
         return _ARS_data;
     }
-    
     function setTransform($el, data) {
-        $el.css('transform', 'rotate(' + data.rotate + data.rotateUnits + ') scale(' + data.scale + ',' + data.scale + ')');
+        $el.css('transform', 'translate3d(' + data.translate.x + 'px, ' + data.translate.y + 'px, 0) rotate(' + data.rotate + data.rotateUnits + ') scale(' + data.scale + ',' + data.scale + ')')
+			.css({position:'absolute',left:0,top:0,'transform-origin': '0% 0%'});
     }
-    
     $.fn.rotate = function (val) {
         var $self = $(this), m, data = initData($self);
-                        
         if (typeof val == 'undefined') {
             return data.rotate + data.rotateUnits;
         }
-        
         m = val.toString().match(/^(-?\d+(\.\d+)?)(.+)?$/);
         if (m) {
-            if (m[3]) {
-                data.rotateUnits = m[3];
-            }
-            
+            if (m[3]) { data.rotateUnits = m[3] }
             data.rotate = m[1];
-            
             setTransform($self, data);
         }
-        
         return this;
     };
-    
-    // Note that scale is unitless.
     $.fn.scale = function (val) {
         var $self = $(this), data = initData($self);
-        
         if (typeof val == 'undefined') {
             return data.scale;
         }
-        
         data.scale = val;
-        
         setTransform($self, data);
-        
         return this;
     };
-
-    // fx.cur() must be monkey patched because otherwise it would always
-    // return 0 for current rotate and scale values
+	$.fn.translate = function(x, y) {
+		var $self = $(this), data = initData($self);
+		if(typeof x == 'undefined') {
+			return data.translate;
+		}
+		data.translate = {x:x, y:y};
+		setTransform($self, data);
+		return this;
+	};
     var curProxied = $.fx.prototype.cur;
     $.fx.prototype.cur = function () {
         if (this.prop == 'rotate') {
             return parseFloat($(this.elem).rotate());
-            
         } else if (this.prop == 'scale') {
             return parseFloat($(this.elem).scale());
+        } else if (this.prop == 'translateX') {
+			return $(this.elem).translate().x;
+        } else if(this.prop == 'translateY') {
+			return $(this.elem).translate().y;
         }
-        
         return curProxied.apply(this, arguments);
     };
-    
     $.fx.step.rotate = function (fx) {
         var data = initData($(fx.elem));
         $(fx.elem).rotate(fx.now + data.rotateUnits);
     };
-    
-    $.fx.step.scale = function (fx) {
-        $(fx.elem).scale(fx.now);
-    };
-    
-    /*
-    
-    Starting on line 3905 of jquery-1.3.2.js we have this code:
-    
-    // We need to compute starting value
-    if ( unit != "px" ) {
-        self.style[ name ] = (end || 1) + unit;
-        start = ((end || 1) / e.cur(true)) * start;
-        self.style[ name ] = start + unit;
-    }
-    
-    This creates a problem where we cannot give units to our custom animation
-    because if we do then this code will execute and because self.style[name]
-    does not exist where name is our custom animation's name then e.cur(true)
-    will likely return zero and create a divide by zero bug which will set
-    start to NaN.
-    
-    The following monkey patch for animate() gets around this by storing the
-    units used in the rotation definition and then stripping the units off.
-    
-    */
-    
+    $.fx.step.scale = function (fx) { $(fx.elem).scale(fx.now) };
+    $.fx.step.translateX = function(fx) { $(fx.elem).translate(fx.now, $(fx.elem).translate().y) };
+    $.fx.step.translateY = function(fx) { $(fx.elem).translate($(fx.elem).translate().x, fx.now) };
     var animateProxied = $.fn.animate;
     $.fn.animate = function (prop) {
         if (typeof prop['rotate'] != 'undefined') {
@@ -389,3 +403,127 @@
         return animateProxied.apply(this, arguments);
     };
 })(jQuery);
+
+/*! Copyright (c) 2013 Brandon Aaron (http://brandon.aaron.sh)
+ * Licensed under the MIT License (LICENSE.txt).
+ *
+ * Version: 3.1.4
+ *
+ * Requires: 1.2.2+
+ */
+
+(function (factory) {
+    if ( typeof define === 'function' && define.amd ) {
+        // AMD. Register as an anonymous module.
+        define(['jquery'], factory);
+    } else if (typeof exports === 'object') {
+        // Node/CommonJS style for Browserify
+        module.exports = factory;
+    } else {
+        // Browser globals
+        factory(jQuery);
+    }
+}(function ($) {
+
+    var toFix = ['wheel', 'mousewheel', 'DOMMouseScroll', 'MozMousePixelScroll'];
+    var toBind = 'onwheel' in document || document.documentMode >= 9 ? ['wheel'] : ['mousewheel', 'DomMouseScroll', 'MozMousePixelScroll'];
+    var lowestDelta, lowestDeltaXY;
+
+    if ( $.event.fixHooks ) {
+        for ( var i = toFix.length; i; ) {
+            $.event.fixHooks[ toFix[--i] ] = $.event.mouseHooks;
+        }
+    }
+
+    $.event.special.mousewheel = {
+        setup: function() {
+            if ( this.addEventListener ) {
+                for ( var i = toBind.length; i; ) {
+                    this.addEventListener( toBind[--i], handler, false );
+                }
+            } else {
+                this.onmousewheel = handler;
+            }
+        },
+
+        teardown: function() {
+            if ( this.removeEventListener ) {
+                for ( var i = toBind.length; i; ) {
+                    this.removeEventListener( toBind[--i], handler, false );
+                }
+            } else {
+                this.onmousewheel = null;
+            }
+        }
+    };
+
+    $.fn.extend({
+        mousewheel: function(fn) {
+            return fn ? this.bind('mousewheel', fn) : this.trigger('mousewheel');
+        },
+
+        unmousewheel: function(fn) {
+            return this.unbind('mousewheel', fn);
+        }
+    });
+
+
+    function handler(event) {
+        var orgEvent   = event || window.event,
+            args       = [].slice.call(arguments, 1),
+            delta      = 0,
+            deltaX     = 0,
+            deltaY     = 0,
+            absDelta   = 0,
+            absDeltaXY = 0,
+            fn;
+        event = $.event.fix(orgEvent);
+        event.type = 'mousewheel';
+
+        // Old school scrollwheel delta
+        if ( orgEvent.wheelDelta ) { delta = orgEvent.wheelDelta; }
+        if ( orgEvent.detail )     { delta = orgEvent.detail * -1; }
+
+        // At a minimum, setup the deltaY to be delta
+        deltaY = delta;
+
+        // Firefox < 17 related to DOMMouseScroll event
+        if ( orgEvent.axis !== undefined && orgEvent.axis === orgEvent.HORIZONTAL_AXIS ) {
+            deltaY = 0;
+            deltaX = delta * -1;
+        }
+
+        // New school wheel delta (wheel event)
+        if ( orgEvent.deltaY ) {
+            deltaY = orgEvent.deltaY * -1;
+            delta  = deltaY;
+        }
+        if ( orgEvent.deltaX ) {
+            deltaX = orgEvent.deltaX;
+            delta  = deltaX * -1;
+        }
+
+        // Webkit
+        if ( orgEvent.wheelDeltaY !== undefined ) { deltaY = orgEvent.wheelDeltaY; }
+        if ( orgEvent.wheelDeltaX !== undefined ) { deltaX = orgEvent.wheelDeltaX * -1; }
+
+        // Look for lowest delta to normalize the delta values
+        absDelta = Math.abs(delta);
+        if ( !lowestDelta || absDelta < lowestDelta ) { lowestDelta = absDelta; }
+        absDeltaXY = Math.max(Math.abs(deltaY), Math.abs(deltaX));
+        if ( !lowestDeltaXY || absDeltaXY < lowestDeltaXY ) { lowestDeltaXY = absDeltaXY; }
+
+        // Get a whole value for the deltas
+        fn     = delta > 0 ? 'floor' : 'ceil';
+        delta  = Math[fn](delta  / lowestDelta);
+        deltaX = Math[fn](deltaX / lowestDeltaXY);
+        deltaY = Math[fn](deltaY / lowestDeltaXY);
+
+        // Add event and delta to the front of the arguments
+        args.unshift(event, delta, deltaX, deltaY);
+
+        return ($.event.dispatch || $.event.handle).apply(this, args);
+    }
+
+}));
+

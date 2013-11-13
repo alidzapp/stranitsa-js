@@ -20,12 +20,16 @@
 			if(index in $pages) {
 				resolve($pages[index]);
 			} else {
-				pdf.getPage(index).then(function(page) {
-					var $page = $("<div/>");
-					renderPage($page, page, $(window).width, function() {
-						resolve($pages[index] = $page);
-					});
-				});
+				if(index >= 1 && index <= pdf.numPages) {				
+					pdf.getPage(index).then(function(page) {
+						var $page = $("<div/>");
+						renderPage($page, page, $(window).width, function() {
+							resolve($pages[index] = $page);
+						});
+					});	
+				} else {
+					defer.reject();
+				}
 			}
 			return defer;
 		};
